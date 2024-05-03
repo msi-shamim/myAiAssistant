@@ -1,6 +1,7 @@
 import pyttsx3
 import sys
 import sounddevice as sd
+import soundfile as sf
 import numpy as np
 import whisper
 from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton
@@ -37,7 +38,7 @@ class MainWindow(QMainWindow):
         # Convert the recorded audio data to a format suitable for Whisper
         audio_data = np.concatenate(audio_queue, axis=0).flatten()
         audio_path = "temp_audio.wav"
-        sd.write(audio_path, audio_data, 44100)
+        sf.write(audio_path, audio_data, 44100, 'PCM_16')
 
         # Use Whisper to transcribe the audio
         result = self.model.transcribe(audio_path)
