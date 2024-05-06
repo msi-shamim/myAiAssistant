@@ -3,56 +3,94 @@ import sys
 import sounddevice as sd
 import soundfile as sf
 import numpy as np
+import time
 import whisper
-from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton
+from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QHBoxLayout, QLabel, QWidget, QVBoxLayout, \
+    QGridLayout, QTextEdit
+from PyQt5.QtCore import Qt, QThread, pyqtSignal
+from llm_integration import query_gpt
+
+
+class SpeechWorker(QThread):
+    finished = pyqtSignal(str)
+
+    def __init__(self):
+        super().__init__()
+        self.model = whisper.load_model("small")
+        self.tts_engine = pyttsx3.init()
+
+    def run(self):
+        fs = 44100
+        seconds = 5
+        recording = sd.rec(int(seconds * fs), samplerate=fs, channels=1)
+        sd.wait()
+        audio_path0 = "output.wav"
+        sf.write(audio_path0, recording, fs)
+
+        result = self.model.transcribe(audio_path0)
+        print("helo", result)
+        gpt_reply = query_gpt(result["text"])
+        # self.finished.emit(result["text"])
+        self.finished.emit(gpt_reply)
 
 
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.listen_button = QPushButton("Listen", self)
-        self.listen_button.clicked.connect(self.listen)
-        self.listen_button.resize(200, 50)
-        self.listen_button.move(300, 275)
+
+        self.setGeometry(100, 100, 800, 400)
+        main_window = QMainWindow()
         self.setWindowTitle("My AI Assistant")
-        self.setGeometry(100, 100, 800, 600)
 
-        #initialize whisper model
-        self.model = whisper.load_model("small")
+        central_widget = QWidget()
+        layout = QVBoxLayout()
 
-        #initialize text-to-speech engine
+        self.setCentralWidget(central_widget)
+        # self.label = QLabel("")
+        self.listen_button = QPushButton("Listen", self)
+        self.listen_button.setFixedSize(100, 50)
+
+        self.textEdit = QTextEdit()
+        self.textEdit.setFixedHeight(300)
+        self.textEdit.setFixedWidth(800)
+
+        # layout.addWidget(self.label)
+        layout.addWidget(self.textEdit)
+        layout.addWidget(self.listen_button, alignment=Qt.AlignHCenter)
+
+        central_widget.setLayout(layout)
+        main_window.show()
+        # self.model = whisper.load_model("small")
         self.tts_engine = pyttsx3.init()
+        self.tts_engine.setProperty('rate', 185)
+        # voices = self.tts_engine.getProperty('voices')
+        # print("hgasjhd", voices)
+        # # self.tts_engine.setProperty('voice', self.tts_engine.getProperty('voices')[1].id)
+        self.listen_button.clicked.connect(self.listen)
+
+        # self.initializeApplication()
+        # self.exec_()
 
     def listen(self):
-        # Define the callback function to capture audio data
-        def callback(indata, frames, time, status):
-            if status:
-                print(status)
-            audio_queue.extend(indata.copy())
-
-        # Initialize the audio queue and start recording
-        audio_queue = []
-        with sd.InputStream(callback=callback):
-            sd.sleep(5000)  # Capture audio for 5 seconds
-
-        # Convert the recorded audio data to a format suitable for Whisper
-        audio_data = np.concatenate(audio_queue, axis=0).flatten()
-        audio_path = "temp_audio.wav"
-        sf.write(audio_path, audio_data, 44100, 'PCM_16')
-
-        # Use Whisper to transcribe the audio
-        result = self.model.transcribe(audio_path)
-        self.speak(result["text"])
+        self.textEdit.append("Processing... Please wait")
+        self.worker = SpeechWorker()
+        self.worker.finished.connect(self.speak)
+        self.worker.start()
 
     def speak(self, text):
+        # self.label.setText(text)
+        self.textEdit.append(text)
         self.tts_engine.say(text)
         self.tts_engine.runAndWait()
+
+        self.textEdit.append("Press button to speak again")
 
 
 def main():
     app = QApplication(sys.argv)
     window = MainWindow()
     window.show()
+    # app.exec_()
     sys.exit(app.exec_())
 
 
