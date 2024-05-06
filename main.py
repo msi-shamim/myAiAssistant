@@ -1,9 +1,11 @@
 import sys
+import platform
 
 import pyttsx3
-import sounddevice as sd
 import soundfile as sf
 import whisper
+import sounddevice as sd
+import speech_recognition as sr
 from PyQt5.QtCore import Qt, QThread, pyqtSignal
 from PyQt5.QtGui import QIcon
 from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QVBoxLayout, QTextEdit, QWidget
@@ -20,14 +22,36 @@ class SpeechWorker(QThread):
         self.tts_engine = tts_engine
 
     def run(self):
-        fs = 44100
-        seconds = 5
-        recording = sd.rec(int(seconds * fs), samplerate=fs, channels=1)
-        sd.wait()
-        audio_path = "output.wav"
-        sf.write(audio_path, recording, fs)
+        if platform.system() == "Windows":
+            # Use speech_recognition for Windows
+            r = sr.Recognizer()
+            with sr.Microphone() as source:
+                print("Speak Now...")
+                audio = r.listen(source)
 
-        result = self.model.transcribe(audio_path)
+            try:
+                # Convert recorded speech to text
+                text = r.recognize_google(audio)
+                print("You said: " + text)
+            except sr.UnknownValueError:
+                text = "Could not understand audio"
+                print("Could not understand audio")
+            except sr.RequestError as e:
+                text = "Could not request results from Google Speech Recognition service; {0}".format(e)
+                print("Could not request results from Google Speech Recognition service; {0}".format(e))
+        else:
+            # Use sounddevice for macOS and other platforms
+            fs = 44100
+            seconds = 5
+            recording = sd.rec(int(seconds * fs), samplerate=fs, channels=1)
+            sd.wait()
+            audio_path = "output.wav"
+            sf.write(audio_path, recording, fs)
+
+            text = self.model.transcribe(audio_path)
+
+        # Process text using whisper and GPT
+        result = self.model.transcribe(text)
         gpt_reply = query_gpt(result["text"])
         self.finished.emit(gpt_reply)
 
