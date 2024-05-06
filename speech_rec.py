@@ -7,12 +7,13 @@ import time
 import whisper
 from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QHBoxLayout,        QLabel, QWidget, QVBoxLayout, QGridLayout, QTextEdit
 from PyQt5.QtCore import Qt, QThread, pyqtSignal
+from llm_integration import query_gpt
 
 class SpeechWorker(QThread):
     finished = pyqtSignal(str)
     def __init__(self):
         super().__init__()
-        self.model = whisper.load_model("small")
+        self.model = whisper.load_model("medium")
         self.tts_engine = pyttsx3.init()
     def run(self):
         fs = 44100
@@ -24,7 +25,12 @@ class SpeechWorker(QThread):
 
         result = self.model.transcribe(audio_path0)
         print("helo", result)
-        self.finished.emit(result["text"])
+        gpt_reply = query_gpt(result["text"])
+        # self.finished.emit(result["text"])
+        self.finished.emit(gpt_reply)
+
+
+
 
 class MainWindow(QMainWindow):
     def __init__(self):
