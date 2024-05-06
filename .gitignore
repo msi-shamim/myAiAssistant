@@ -1,2 +1,4 @@
-temp_audio.wav
 .idea/
+*.wav
+*.m4a
+.env
