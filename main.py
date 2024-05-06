@@ -1,96 +1,80 @@
-import pyttsx3
 import sys
+
+import pyttsx3
 import sounddevice as sd
 import soundfile as sf
-import numpy as np
-import time
 import whisper
-from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QHBoxLayout, QLabel, QWidget, QVBoxLayout, \
-    QGridLayout, QTextEdit
 from PyQt5.QtCore import Qt, QThread, pyqtSignal
+from PyQt5.QtGui import QIcon
+from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QVBoxLayout, QTextEdit, QWidget
+
 from llm_integration import query_gpt
 
 
 class SpeechWorker(QThread):
     finished = pyqtSignal(str)
 
-    def __init__(self):
+    def __init__(self, model, tts_engine):
         super().__init__()
-        self.model = whisper.load_model("small")
-        self.tts_engine = pyttsx3.init()
+        self.model = model
+        self.tts_engine = tts_engine
 
     def run(self):
         fs = 44100
         seconds = 5
         recording = sd.rec(int(seconds * fs), samplerate=fs, channels=1)
         sd.wait()
-        audio_path0 = "output.wav"
-        sf.write(audio_path0, recording, fs)
+        audio_path = "output.wav"
+        sf.write(audio_path, recording, fs)
 
-        result = self.model.transcribe(audio_path0)
-        print("helo", result)
+        result = self.model.transcribe(audio_path)
         gpt_reply = query_gpt(result["text"])
-        # self.finished.emit(result["text"])
         self.finished.emit(gpt_reply)
 
 
 class MainWindow(QMainWindow):
-    def __init__(self):
+    def __init__(self, model, tts_engine):
         super().__init__()
-
-        self.setGeometry(100, 100, 800, 400)
-        main_window = QMainWindow()
+        self.model = model
+        self.setGeometry(100, 100, 300, 400)
         self.setWindowTitle("My AI Assistant")
 
-        central_widget = QWidget()
-        layout = QVBoxLayout()
-
-        self.setCentralWidget(central_widget)
-        # self.label = QLabel("")
-        self.listen_button = QPushButton("Listen", self)
-        self.listen_button.setFixedSize(100, 50)
+        self.central_widget = QWidget()
+        self.setCentralWidget(self.central_widget)
 
         self.textEdit = QTextEdit()
-        self.textEdit.setFixedHeight(300)
-        self.textEdit.setFixedWidth(800)
+        self.textEdit.setPlaceholderText("Speak into the microphone and your speech will appear here...")
 
-        # layout.addWidget(self.label)
-        layout.addWidget(self.textEdit)
-        layout.addWidget(self.listen_button, alignment=Qt.AlignHCenter)
-
-        central_widget.setLayout(layout)
-        main_window.show()
-        # self.model = whisper.load_model("small")
-        self.tts_engine = pyttsx3.init()
-        self.tts_engine.setProperty('rate', 185)
-        # voices = self.tts_engine.getProperty('voices')
-        # print("hgasjhd", voices)
-        # # self.tts_engine.setProperty('voice', self.tts_engine.getProperty('voices')[1].id)
+        self.listen_button = QPushButton()
+        self.listen_button.setIcon(QIcon('microphone.png'))  # Mic icon button
+        self.listen_button.setFixedSize(48, 48)
         self.listen_button.clicked.connect(self.listen)
 
-        # self.initializeApplication()
-        # self.exec_()
+        self.layout = QVBoxLayout(self.central_widget)
+        self.layout.addWidget(self.textEdit)
+        self.layout.addWidget(self.listen_button, alignment=Qt.AlignRight)  # Button at the bottom right
+
+        self.tts_engine = tts_engine
 
     def listen(self):
         self.textEdit.append("Processing... Please wait")
-        self.worker = SpeechWorker()
+        self.worker = SpeechWorker(self.model, self.tts_engine)
         self.worker.finished.connect(self.speak)
         self.worker.start()
 
     def speak(self, text):
-        # self.label.setText(text)
         self.textEdit.append(text)
         self.tts_engine.say(text)
         self.tts_engine.runAndWait()
 
-        self.textEdit.append("Press button to speak again")
-
 
 def main():
     app = QApplication(sys.argv)
-    window = MainWindow()
+    tts_engine = pyttsx3.init()
+    tts_engine.setProperty('rate', 185)
+    model = whisper.load_model("small")  # Load the model once and pass it to MainWindow
+    window = MainWindow(model, tts_engine)
     window.show()
-    # app.exec_()
     sys.exit(app.exec_())
 
 
