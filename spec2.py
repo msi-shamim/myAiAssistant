@@ -34,7 +34,7 @@ class SpeechWorker(QThread):
         self.finished.emit(gpt_reply)
 
 
-class MainWindow(QMainWindow):
+class CustomMainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
 
@@ -85,14 +85,31 @@ class MainWindow(QMainWindow):
 
         self.textEdit.append("Press button to speak again")
 
+    def closeEvent(self, event):
+        # Custom logic to execute before the window closes
+        print("Closing the window...")
+        event.accept()
 
-def main():
-    app = QApplication(sys.argv)
-    window = MainWindow()
-    window.show()
-    # app.exec_()
-    sys.exit(app.exec_())
+
+class Assistant(QApplication):
+
+    def __init__(self):
+        args = sys.argv
+        QApplication.__init__(self, args)
+        self.initializeApplication()
+        self.exec_()
+
+    def initializeApplication(self):
+        self.window = CustomMainWindow()
+        self.window.show()
+
+# def main():
+#     app = QApplication(sys.argv)
+#     window = MainWindow()
+#     window.show()
+#     app.exec_()
+#     # sys.exit(app.exec_())
 
 
 if __name__ == "__main__":
-    main()
+    Assistant()
