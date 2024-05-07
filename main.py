@@ -67,8 +67,10 @@ class MainWindow(QMainWindow):
         self.layout.addWidget(self.listen_button, alignment=Qt.AlignRight)  # Button at the bottom right
 
     def listen(self):
-        self.textEdit.append("Processing... Please wait")
+        self.textEdit.append('')
+        self.textEdit.append(f"<span style='color:grey;'>Listening</span>")
         self.worker = SpeechWorker(self.model)
+
         self.worker.finished.connect(self.speak)
         self.worker.start()
 
@@ -84,6 +86,7 @@ class MainWindow(QMainWindow):
 
 
     def speak(self, text):
+        # self.textEdit.append(f"<span style='color:grey;'>Processing...</span>")
         self.textEdit.append(text)
         self.worker1 = PlayWorker(text)
         # self.worker.finished.connect(self.speak)
