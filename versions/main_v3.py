@@ -26,8 +26,8 @@ class RecordWorker(QThread):
 
     def run(self):
         fs = 44100
-        seconds = 5
-        audio_path = "output.wav"
+        seconds = 7
+        audio_path = "audio/output.wav"
         chunk = 1024
         # sample format
         FORMAT = pyaudio.paInt16
@@ -68,6 +68,8 @@ class RecordWorker(QThread):
 
         # Save recorded audio to a file
         sf.write(audio_path, audio_data, fs)
+        p.terminate()
+
         self.finished.emit(audio_path)
 
 
@@ -82,8 +84,8 @@ class SpeechWorker(QThread):
     def run(self):
         result = self.model.transcribe(self.audio_path)
         print("whisper output: ",result)
+        # validated_data = validate_data({"text":"open browser and go to youtube", "language":"en"})
         validated_data = validate_data(result)
-
         self.finished.emit(validated_data)
 
 
@@ -100,17 +102,19 @@ class PlayWorker(QThread):
         print("start gtts", datetime.now().time())
         tts = gTTS(self.text, lang='en', tld='us')
         print("end gtts", datetime.now().time())
+        tts.save('audio/temp.mp3')
+        playsound('audio/temp.mp3')
 
-        mp3_fp = BytesIO()
-        tts.write_to_fp(mp3_fp)
-        print("end gtts write to byte", datetime.now().time())
-        tts.save("audio_gtts.mp3")
-        print("end gtts write to file", datetime.now().time())
-
-        mp3_fp.seek(0)
-        song = AudioSegment.from_file(mp3_fp, format="mp3")
-        print("end gtts read from file", datetime.now().time())
-        play(song)
+        # mp3_fp = BytesIO()
+        # # tts.write_to_fp(mp3_fp)
+        # # print("end gtts write to byte", datetime.now().time())
+        # tts.save("audio_gtts.mp3")
+        # print("end gtts write to file", datetime.now().time())
+        #
+        # mp3_fp.seek(0)
+        # song = AudioSegment.from_file(mp3_fp, format="mp3")
+        # print("end gtts read from file", datetime.now().time())
+        # play(song)
         # audio_array = np.frombuffer(mp3_fp.getvalue(), dtype=np.int16)
         # play_obj = sa.play_buffer(audio_array, 2, 2, 44100)  # Adjust parameters as needed
         # play_obj.wait_done()
@@ -127,7 +131,7 @@ class MainWindow(QMainWindow):
         self.textEdit = QTextEdit()
         self.textEdit.setPlaceholderText("Speak into the microphone and your speech will appear here...")
         self.listen_button = QPushButton()
-        self.listen_button.setIcon(QIcon('microphone.png'))
+        self.listen_button.setIcon(QIcon('media/microphone.png'))
         self.listen_button.setFixedSize(48, 48)
         self.listen_button.clicked.connect(self.listen)
         self.layout = QVBoxLayout(self.central_widget)
@@ -142,17 +146,17 @@ class MainWindow(QMainWindow):
         self.worker.start()
 
     def process(self):
-        self.audio_path = "output.wav"
+        self.audio_path = "audio/output.wav"
         self.textEdit.append(f"<span style='color:grey;'>Processing...</span>")
-        self.worker = SpeechWorker(self.model, self.audio_path)
-        self.worker.finished.connect(self.speak)
-        self.worker.start()
+        self.worker1 = SpeechWorker(self.model, self.audio_path)
+        self.worker1.finished.connect(self.speak)
+        self.worker1.start()
 
     def speak(self, text):
         # self.textEdit.append(f"<span style='color:grey;'>Processing...</span>")
         self.textEdit.append(text)
-        self.worker1 = PlayWorker(text)
-        self.worker1.start()
+        self.worker2 = PlayWorker(text)
+        self.worker2.start()
 
 
 

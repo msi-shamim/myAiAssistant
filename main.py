@@ -1,7 +1,4 @@
 import sys
-import time
-
-import pyttsx3
 import sounddevice as sd
 import soundfile as sf
 import whisper
@@ -10,11 +7,17 @@ from PyQt5.QtGui import QIcon
 from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QVBoxLayout, QTextEdit, QWidget
 from playsound import playsound
 from gtts import gTTS
-import asyncio
 from llm_integration import query_gpt
-import threading
+import pyaudio
+from io import BytesIO
+from pydub import AudioSegment
+from pydub.playback import play
+import numpy as np
+from datetime import datetime
+from utils.verification import validate_data
 
-class SpeechWorker(QThread):
+
+class RecordWorker(QThread):
     finished = pyqtSignal(str)
 
     def __init__(self, model):
@@ -23,29 +26,98 @@ class SpeechWorker(QThread):
 
     def run(self):
         fs = 44100
-        seconds = 5
-        recording = sd.rec(int(seconds * fs), samplerate=44100, channels=1)
-        sd.wait()
-        audio_path = "output.wav"
-        sf.write(audio_path, recording, fs)
-        result = self.model.transcribe(audio_path)
-        gpt_reply = query_gpt(result["text"])
+        seconds = 6
+        audio_path = "audio/output.wav"
+        chunk = 1024
+        # sample format
+        FORMAT = pyaudio.paInt16
+        # mono, change to 2 if you want stereo
+        channels = 1
+        f = 440
+        samples = (np.sin(2 * np.pi * np.arange(fs * seconds) * f / fs)).astype(np.float32)
 
-        # gpt_reply = result["text"]
-        self.finished.emit(gpt_reply)
+        p = pyaudio.PyAudio()
+        stream = p.open(format=FORMAT,
+                        channels=channels,
+                        rate=fs,
+                        input=True,
+                        output=True,
+                        frames_per_buffer=chunk)
+        frames = []
+        print("Recording...")
+        for i in range(int(fs / chunk * seconds)):
+            data = stream.read(chunk)
+            # if you want to hear your voice while recording
+            # stream.write(data)
+            frames.append(data)
+        print("Finished recording.")
+        # stream.write(samples.tobytes())
+        stream.stop_stream()
+        stream.close()
+
+        # audio_data = samples.tobytes()
+
+        # Write audio data to a file using soundfile
+        # sf.write('output2.wav', audio_data, fs, subtype='FLOAT')
+        # recording = sd.rec(int(seconds * fs), samplerate=44100, channels=1)
+        # sd.wait()
+        # sf.write(audio_path, frames, fs)
+        # sf.write(audio_path, frames, fs, subtype='FLOAT')
+        # Convert frames to a numpy array with dtype int16
+        audio_data = np.frombuffer(b''.join(frames), dtype=np.int16)
+
+        # Save recorded audio to a file
+        sf.write(audio_path, audio_data, fs)
+        p.terminate()
+
+        self.finished.emit(audio_path)
+
+
+class SpeechWorker(QThread):
+    finished = pyqtSignal(str)
+
+    def __init__(self, model, audio_path):
+        super().__init__()
+        self.model = model
+        self.audio_path = audio_path
+
+    def run(self):
+        result = self.model.transcribe(self.audio_path)
+        print("whisper output: ",result)
+        # validated_data = validate_data({"text":"open browser and go to youtube", "language":"en"})
+        validated_data = validate_data(result)
+        self.finished.emit(validated_data)
+
+
 
 
 class PlayWorker(QThread):
     finished = pyqtSignal(str)
+
     def __init__(self, text):
         super().__init__()
         self.text = text
 
     def run(self):
-        tts = gTTS(self.text)
+        print("start gtts", datetime.now().time())
+        tts = gTTS(self.text, lang='en', tld='us')
+        print("end gtts", datetime.now().time())
         tts.save('audio/temp.mp3')
         playsound('audio/temp.mp3')
-        # self.finished.emit(gpt_reply)
+
+        # mp3_fp = BytesIO()
+        # # tts.write_to_fp(mp3_fp)
+        # # print("end gtts write to byte", datetime.now().time())
+        # tts.save("audio_gtts.mp3")
+        # print("end gtts write to file", datetime.now().time())
+        #
+        # mp3_fp.seek(0)
+        # song = AudioSegment.from_file(mp3_fp, format="mp3")
+        # print("end gtts read from file", datetime.now().time())
+        # play(song)
+        # audio_array = np.frombuffer(mp3_fp.getvalue(), dtype=np.int16)
+        # play_obj = sa.play_buffer(audio_array, 2, 2, 44100)  # Adjust parameters as needed
+        # play_obj.wait_done()
 
 
 class MainWindow(QMainWindow):
@@ -59,63 +131,42 @@ class MainWindow(QMainWindow):
         self.textEdit = QTextEdit()
         self.textEdit.setPlaceholderText("Speak into the microphone and your speech will appear here...")
         self.listen_button = QPushButton()
-        self.listen_button.setIcon(QIcon('microphone.png'))  # Mic icon button
+        self.listen_button.setIcon(QIcon('media/microphone.png'))
         self.listen_button.setFixedSize(48, 48)
         self.listen_button.clicked.connect(self.listen)
         self.layout = QVBoxLayout(self.central_widget)
         self.layout.addWidget(self.textEdit)
-        self.layout.addWidget(self.listen_button, alignment=Qt.AlignRight)  # Button at the bottom right
+        self.layout.addWidget(self.listen_button, alignment=Qt.AlignRight)
 
     def listen(self):
         self.textEdit.append('')
         self.textEdit.append(f"<span style='color:grey;'>Listening</span>")
-        self.worker = SpeechWorker(self.model)
-
-        self.worker.finished.connect(self.speak)
+        self.worker = RecordWorker(self.model)
+        self.worker.finished.connect(self.process)
         self.worker.start()
 
-    def play_audio(self, text):
-        time.sleep(1)
-        tts = gTTS(text)
-        tts.save('audio/temp.mp3')
-        playsound('audio/temp.mp3')
-        
-    def print_text(self, text):
-        time.sleep(1)
-        self.textEdit.append(text)
-
+    def process(self):
+        self.audio_path = "audio/output.wav"
+        self.textEdit.append(f"<span style='color:grey;'>Processing...</span>")
+        self.worker1 = SpeechWorker(self.model, self.audio_path)
+        self.worker1.finished.connect(self.speak)
+        self.worker1.start()
 
     def speak(self, text):
         # self.textEdit.append(f"<span style='color:grey;'>Processing...</span>")
         self.textEdit.append(text)
-        self.worker1 = PlayWorker(text)
-        # self.worker.finished.connect(self.speak)
-        self.worker1.start()
+        self.worker2 = PlayWorker(text)
+        self.worker2.start()
 
-        # thread1 = threading.Thread(target=self.play_audio, args=(text,))
-        # # thread2 = threading.Thread(target=self.print_text, args=(text,))
-        # thread1.start()
-        # # thread2.start()
-        # thread1.join()
-        # thread2.join()
-
-        # asyncio.run(self.play_audio(text))
-        # asyncio.gather(
-        #     self.print_text(text),
-        #     self.play_audio(text)
-        # )
 
 
 
 def main():
     app = QApplication(sys.argv)
-    # tts_engine = pyttsx3.init()
-    # tts_engine.setProperty('rate', 185)
-    model = whisper.load_model("small")  # Load the model once and pass it to MainWindow
+    model = whisper.load_model("small")
     window = MainWindow(model)
     window.show()
     app.exec_()
-    # sys.exit(app.exec_())
 
 
 if __name__ == "__main__":

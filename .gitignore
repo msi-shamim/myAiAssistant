@@ -2,3 +2,4 @@
 *.wav
 *.m4a
 .env
+audio/*
