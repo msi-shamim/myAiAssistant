@@ -14,6 +14,9 @@ from pydub import AudioSegment
 from pydub.playback import play
 import numpy as np
 from datetime import datetime
+from utils.verification import validate_data
+
+
 class RecordWorker(QThread):
     finished = pyqtSignal(str)
 
@@ -79,14 +82,11 @@ class SpeechWorker(QThread):
     def run(self):
         result = self.model.transcribe(self.audio_path)
         print("whisper output: ",result)
+        validated_data = validate_data(result)
 
-        if "language" in result:
-            if result["language"] != "en":
-                self.finished.emit("I am having trouble understanding your language")
-            else:
-                gpt_reply = query_gpt(result["text"])
-                # gpt_reply = result["text"]
-                self.finished.emit(gpt_reply)
+        self.finished.emit(validated_data)
+
+
 
 
 class PlayWorker(QThread):
