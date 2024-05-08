@@ -26,7 +26,7 @@ class RecordWorker(QThread):
 
     def run(self):
         fs = 44100
-        seconds = 6
+        seconds = 7
         audio_path = "audio/output.wav"
         chunk = 1024
         # sample format
