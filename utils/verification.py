@@ -22,6 +22,7 @@ def validate_data(data: dict):
             for command in commands:
                 command = command.strip()
                 print(command)
+
                 if command.startswith("open browser"):
                     webbrowser.open('https://www.google.com/', new=2)
 
@@ -59,60 +60,59 @@ def validate_data(data: dict):
 
     return gpt_reply
 
-# def validate_data(data: dict):
-#     print(platform.platform())
-#     if "language" in data:
-#         if data["language"] != "en":
-#             return "I am having trouble understanding your language"
-#     if "text" in data:
-#         if first_word:=data["text"].strip().split()[0] in command_verbs:
-#             reply = query_gpt_do("open weather app and wait 15 sec and close notes app")
-#             reply = reply.strip().split("\n")
-#             print(reply)
-#             for item in reply:
-#                 # if item.startswith("    "):
-#                 #     continue
-#                     # print(item)
-#                     # eval(item)
-#
-#                 if re.search(r"""^if.*:$""", item.strip()) is not None:
-#                     continue
-#                     # print(item)
-#                     # exec(item)
-#                 if re.search(r"""\S+=\S+""", item.strip()) is not None:
-#                     print(item)
-#                     exec(item)
-#                 if item.strip().startswith("subprocess."):
-#                     print(item)
-#                     eval(item)
-#             # webbrowser.open('https://www.google.com/', new=2)
-#             # cmd = "open /System/Applications/Music.app"
-#             # p = subprocess.Popen(cmd, shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-#             # stdout, stderr = p.communicate()
-#             # subprocess.run(["open", "/System/Applications/Notes.app"])
-#             # time.sleep(3)
-#             # # Close the Notes app after a delay (e.g., 5 seconds)
-#             # subprocess.run(["osascript", "-e", 'tell application "Notes" to quit'])
-#             #
-#             # applescript = """
-#             # tell application "Notes"
-#             #     activate
-#             #     make new note with properties {name:"New Note", content:"Hello, world!"}
-#             #     delay 2 -- Wait for the note to open
-#             #     tell application "System Events"
-#             #         keystroke "w" using command down -- Shortcut to close the note
-#             #     end tell
-#             # end tell
-#             # """
-#             #
-#             # # Execute the AppleScript
-#             # subprocess.call(['osascript', '-e', applescript])
-#             # print("", first_word)
-#             return "Done!"
-#
-#
-#     gpt_reply = query_gpt(data["text"])
-#     return gpt_reply
+def validate(data: dict):
+    print(platform.platform())
+    if "language" in data:
+        if data["language"] != "en":
+            return "I am having trouble understanding your language"
+    if "text" in data:
+        if first_word:=data["text"].strip().split()[0] in command_verbs:
+            reply = query_gpt_do(data["text"])
+            reply = reply.strip().split("\n")
+            print(reply)
+            for item in reply:
+                # if item.startswith("    "):
+                #     continue
+                    # print(item)
+                    # eval(item)
+                if re.search(r"""^if.*:$""", item.strip()) is not None:
+                    continue
+                    # print(item)
+                    # exec(item)
+                if re.search(r"""\S+=\S+""", item.strip()) is not None:
+                    print(item)
+                    exec(item)
+                if item.strip().startswith("subprocess."):
+                    print(item)
+                    eval(item)
+            # webbrowser.open('https://www.google.com/', new=2)
+            # cmd = "open /System/Applications/Music.app"
+            # p = subprocess.Popen(cmd, shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            # stdout, stderr = p.communicate()
+            # subprocess.run(["open", "/System/Applications/Notes.app"])
+            # time.sleep(3)
+            # # Close the Notes app after a delay (e.g., 5 seconds)
+            # subprocess.run(["osascript", "-e", 'tell application "Notes" to quit'])
+            #
+            # applescript = """
+            # tell application "Notes"
+            #     activate
+            #     make new note with properties {name:"New Note", content:"Hello, world!"}
+            #     delay 2 -- Wait for the note to open
+            #     tell application "System Events"
+            #         keystroke "w" using command down -- Shortcut to close the note
+            #     end tell
+            # end tell
+            # """
+            #
+            # # Execute the AppleScript
+            # subprocess.call(['osascript', '-e', applescript])
+            # print("", first_word)
+            return "Done!"
+
+
+    gpt_reply = query_gpt(data["text"])
+    return gpt_reply
 
 
 
